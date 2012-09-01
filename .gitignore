@@ -1,0 +1,12 @@
+/host_code/write
+.dep
+*.swo
+*.swp
+*.o
+*.lst
+*.eep
+*.elf
+*.hex
+*.lss
+*.map
+*.sym
