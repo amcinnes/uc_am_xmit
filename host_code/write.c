@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <string.h>
 #include <sys/time.h>
+#include <math.h>
 
 // Total buffer: NUMTRANSFERS*PACKETS*PACKETSIZE*8
 // = 200000 bits = 100ms at 2Mbps
@@ -11,42 +12,52 @@
 #define PACKETS 50
 #define PACKETSIZE 250
 
+int sample = 0;
+double sinbuffer[2000];
+FILE *file;
+double data;
+
+double t;
+int total;
+
 double dtime() {
 	struct timeval tv;
 	gettimeofday(&tv,NULL);
 	return tv.tv_sec + 1e-6 * tv.tv_usec;
 }
 
-void transfer(struct libusb_transfer *x) {
-	/*
-	int r = fread(x->buffer,1,BUFSIZE,stdin);
-	if (r==0) {
-		if (feof(stdin)) {
-			exit(0);
-		} else {
-			fprintf(stderr,"Error reading stdin\n");
-			exit(1);
-		}
-	}
-	x->length = r;
-	*/
+char bit(int sample) {
+	// time is sample count, at 2Mbps
+	// we want a 567khz signal
+	double s = sinbuffer[sample%2000] * data;
+	// signal between 0 and 1
+	// rectangular dither, width 2
+	// such that if signal is -1, the probability of result being positive is 0
+	// and if signal is +1, the probability of result being negative is 0
+	s += drand48()*2-1;
+	return s>0;
+}
 
-	x->length = PACKETS*PACKETSIZE;
-	memset(x->buffer,0xaa,x->length);
-	/*
-	int i;
-	for (i=0;i<BUFSIZE;i+=64) {
-		int f=(i>=BUFSIZE/2);
-		x->buffer[i] = 0x02;
-		x->buffer[i+63] = 0x40;
+void transfer(struct libusb_transfer *x) {
+	int i,j;
+	for (i=0;i<x->length;i++) {
+		x->buffer[i] = 0;
+		// LSB comes first
+		for (j=0;j<8;j++) {
+			if (sample%200==0) {
+				int16_t data16;
+				fread(&data16,2,1,file);
+				data = ((double)data16)/37268+0.5;
+			}
+			x->buffer[i] |= bit(sample)<<j;
+			sample++;
+		}
+
 	}
-	*/
+	//memset(x->buffer,0xaa,x->length);
 
 	libusb_submit_transfer(x);
 }
-
-double t;
-int total;
 
 void callback(struct libusb_transfer *xfr) {
 	if (xfr->status!=LIBUSB_TRANSFER_COMPLETED) {
@@ -61,13 +72,20 @@ void callback(struct libusb_transfer *xfr) {
 }
 
 int main() {
+	int i;
+	for (i=0;i<2000;i++) {
+		sinbuffer[i] = sin(i*567*2*M_PI/2000.);
+	}
+
+	file = fopen("test.bin","r");
+	assert(file);
+
 	struct libusb_transfer *xfrs[NUMTRANSFERS];
 
 	libusb_init(NULL);
 	libusb_device_handle *dev = libusb_open_device_with_vid_pid(NULL,0x03eb,0x204f);
 	assert(dev);
 
-	int i;
 	for (i=0;i<NUMTRANSFERS;i++) {
 		xfrs[i] = libusb_alloc_transfer(50);
 		char *buf = malloc(PACKETS*PACKETSIZE);
