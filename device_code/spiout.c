@@ -4,7 +4,7 @@
 #include <util/delay_basic.h>
 #include "spiout.h"
 
-void main_loop() {
+void main_loop(void) {
 	while (Endpoint_IsReadWriteAllowed()) {
 		do {
 			while (!(UCSR1A&0x20)) {
