@@ -19,6 +19,7 @@ double data;
 
 double t;
 int total;
+double last_quant_error;
 
 double dtime() {
 	struct timeval tv;
@@ -26,16 +27,44 @@ double dtime() {
 	return tv.tv_sec + 1e-6 * tv.tv_usec;
 }
 
+#define TAPS 10
+
+double fir_coeff[TAPS] = {
+	//1.0000,
+   -0.1576,
+   -0.6547,
+    0.2788,
+    0.2174,
+   -0.1423,
+   -0.0201,
+   -0.0049,
+    0.0081,
+    0.0596,
+   -0.0143,
+};
+
+double olderrors[TAPS];
+
 char bit(int sample) {
 	// time is sample count, at 2Mbps
 	// we want a 567khz signal
-	double s = sinbuffer[sample%2000] * data;
+	double filter_output = 0.0;
+	int i;
+	for (i=0;i<TAPS;i++) {
+		filter_output += fir_coeff[i] * olderrors[(sample+TAPS-i-1)%TAPS];
+	}
+	double s = (sinbuffer[sample%2000] * (data+0.5)) - filter_output;
 	// signal between 0 and 1
 	// rectangular dither, width 2
 	// such that if signal is -1, the probability of result being positive is 0
 	// and if signal is +1, the probability of result being negative is 0
-	s += drand48()*2-1;
-	return s>0;
+	double dithered = s + drand48()*2-1;
+	if (dithered>0) {
+		olderrors[sample%TAPS] = 1-s;
+	} else {
+		olderrors[sample%TAPS] = -1-s;
+	}
+	return dithered>0;
 }
 
 void transfer(struct libusb_transfer *x) {
@@ -44,7 +73,7 @@ void transfer(struct libusb_transfer *x) {
 		x->buffer[i] = 0;
 		// LSB comes first
 		for (j=0;j<8;j++) {
-			if (sample%200==0) {
+			if (sample%100==0) {
 				int16_t data16;
 				fread(&data16,2,1,file);
 				data = ((double)data16)/37268+0.5;
@@ -77,7 +106,7 @@ int main() {
 		sinbuffer[i] = sin(i*567*2*M_PI/2000.);
 	}
 
-	file = fopen("test.bin","r");
+	file = fopen("20k.bin","r");
 	assert(file);
 
 	struct libusb_transfer *xfrs[NUMTRANSFERS];
