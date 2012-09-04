@@ -1,6 +1,6 @@
 # Transmitting AM radio using a microcontroller
 
-<p class="author">Angus McInnes</p>
+<p class="author">Angus McInnes, 2012-09-05</p>
 
 I have successfully transmitted radio-frequency signals in the AM (MF)
 broadcast range, using a PC to do the computation and a microcontroller output
