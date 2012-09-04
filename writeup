@@ -1,7 +1,14 @@
 # Transmitting AM radio using a microcontroller
 
-I have successfully transmited radio-frequency signals in the AM (MF) broadcast range, using a PC to do the computation and a microcontroller output pin to actually generate the signal.
+<p class="author">Angus McInnes</p>
 
+I have successfully transmitted radio-frequency signals in the AM (MF)
+broadcast range, using a PC to do the computation and a microcontroller output
+pin to actually generate the signal.
+
+If you have questions or comments, email me at <angus@amcinnes.info>.
+
+![Photo of microcontroller transmitter](transmitter.jpg)
 
 ## Introduction
 
@@ -13,7 +20,7 @@ some inspiration for this project.
 
 A modern graphics card can produce 8-bit output (i.e the output can take one of
 256 voltage levels) with a sample rate in the hundreds of Msps (i.e the
-computer can change the voltage level over 10^8 times per second). This would
+computer can change the voltage level over 10<sup>8</sup> times per second). This would
 make it quite a capable radio-frequency signal generator, if not for the fact
 that the signal is briefly cut off during the vertical blanking interval
 between one frame and the next.
@@ -29,20 +36,20 @@ In this project I transmit using a microcontroller I/O pin instead. The
 microcontroller output is, in some respects, not as capable as the VGA output.
 It has a significantly lower maximum sample rate and a significantly lower bit
 depth. The bit depth is 1 bit, as the output can only take two voltage levels,
-``high'' 5V or ``low'' 0V. But the microcontroller does have the advantage that
-it can transmit continuously.
+"high" 5V and "low" 0V. But the microcontroller does have the advantage that it
+can transmit continuously.
 
 I want to transmit AM radio in the MF broadcast band, which is above 500kHz. To
-produce a 500kHz signal, a sample rate of greater than 1Msps is desired. It's not
-strictly necessary; I could possibly use a lower sample rate and receive a
-harmonic of the transmitted signal, like [Bellard's][2] TV transmitter does. But I
-haven't tried that.
+produce a 500kHz signal, a sample rate of greater than 1Msps is desired. It's
+not strictly necessary; I could possibly use a lower sample rate and receive a
+harmonic of the transmitted signal, like [Bellard's][bellard] TV transmitter
+does. But I haven't tried that.
 
 ## Hardware
 
 The microcontroller board I'm using is the [Teensy 2.0][teensy]. The
-microcontroller on this board is an AVR ATMEGA32U4, which supports full-speed
-USB 1.1 (12Mbps) and has a maximum clock rate of 16MHz.
+microcontroller on this board is an Atmel AVR (ATMEGA32U4), which supports
+full-speed USB 1.1 (12Mbps) and has a maximum clock rate of 16MHz.
 
 At a sample rate greater than 1Msps, there are less than 16 microcontroller
 clock cycles per sample. This isn't enough time to do any computation, so the
@@ -58,8 +65,8 @@ strictly necessary. :)
 ### Microcontroller software
 
 The code that runs on the microcontroller is in the `device_code` directory of
-[my git repository][github]. To compile it you will need to download the LUFA
-USB library and set LUFA_PATH appropriately in the Makefile. 
+[my git repository][github]. To compile it you will need to obtain a copy of
+the LUFA USB library and set `LUFA_PATH` appropriately in the Makefile. 
 
 The microcontroller receives bytes over USB and outputs them to its USART
 (universal synchronous/asynchronous receiver/transmitter). The USART is
@@ -69,18 +76,18 @@ bit every two clock cycles).
 
 USB supports a number of different transfer types, including bulk transfers and
 isochronous transfers. Because the microcontroller can't keep a lot of data in
-memory, it's necessary that the USB transfers happen in real time. For this
-reason, I use isochronous transfers, which enable a constant flow of packets at
-one per millisecond. The maximum packet size supported by the microcontroller
-is 256 bytes, so I use 250 byte (i.e 2000 bit) packets and configure the UART
-to run at one bit per 8 clock cycles (2Mbps).
+memory ready for output, it's necessary that the USB transfers happen in real
+time. For this reason, I use isochronous transfers, which enable a regular flow
+of packets at one packet per millisecond. The maximum packet size supported by
+the microcontroller is 256 bytes, so I use 250 byte (i.e 2000 bit) packets and
+configure the USART to run at one bit per 8 clock cycles (2Mbps).
 
-I initially tried using USB bulk transfers rather than isochronous transfers,
-as bulk transfers allow more than one packet per millisecond and would have
-enabled a faster sample rate. I found that, at least on my laptop, bulk
-transfers weren't executed sufficiently close to real-time. When using bulk
-transfers, the frequent interruptions between transfers were audible in the
-output.
+I initially tried using USB bulk transfers rather than isochronous transfers.
+Bulk transfers allow more packets per millisecond and hence higher sample rate,
+but don't have the same guarantee of a consistent flow as isochronous transfers
+do. I found that, at least on my laptop, bulk transfers weren't executed
+sufficiently close to real-time. When using bulk transfers, the frequent
+interruptions between transfers were audible in the output.
 
 ### Host (PC) software
 
@@ -90,10 +97,10 @@ carrier wave to produce the AM radio data, quantises this to 1 bit, and
 transfers the data over USB to the microcontroller. In quantising to 1 bit,
 this code applies noise shaping and dither, described in the next section.
 
-The code expects audio data in a signed 16-bit mono format at 20ksps. This can be
-produced by ffmpeg with a command similar to the following:
+The code expects audio data in a signed 16-bit mono format at 20ksps. This can
+be produced by `ffmpeg` with a command similar to the following:
 
-    ffmpeg -i input.mp4 -ac 1 -ar 20000 -f s16le 20k.bin 
+	ffmpeg -i input.mp4 -ac 1 -ar 20000 -f s16le 20k.bin 
 
 The microcontroller expects one packet per millisecond, and the host transmits
 one packet per millisecond. But the microcontroller's clock is derived from its
@@ -117,14 +124,17 @@ into frequency ranges where it isn't a problem.
 
 A more detailed explanation of how noise shaping works is beyond the scope of
 this discussion. See [Minimally Audible Noise Shaping][lipshitz] by Lipshitz et
-al.
+al. for theory, and see my code for an implementation.
 
 I'm transmitting with a 567khz carrier, and my AM signal occupies a narrow
 frequency band around that carrier. But with a 2Msps output any frequency up to
 1MHz can be produced, so there's plenty of unused frequency space to push the
-noise into.
+noise into. This means my transmitter will be outputting a lot of noise as well
+as the signal I actually want to transmit. If I intended to connect the
+transmitter to an amplifier, I would first add an analog filter to block the
+noise.
 
-The filter coefficients that appear in the code were calculated by a simple
+The filter coefficients that appear in `write.c` were calculated by a simple
 Matlab script, `filterdesign.m`, which is provided in `host_code`.
 
 ## Results and conclusion
@@ -145,3 +155,4 @@ for broadcasting. :)
 [tempest]: http://www.erikyyy.de/tempest/
 [github]: https://github.com/amcinnes/uc_am_xmit
 [teensy]: http://pjrc.com/teensy/
+[lipshitz]: http://www.ece.rochester.edu/courses/ECE472/Site/Assignments/Entries/2009/1/15_Week_1_files/Lipshitz_1991.pdf

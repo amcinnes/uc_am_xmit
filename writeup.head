@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Transmitting AM radio using a microcontroller</title>
+<style>
+html {
+	background-color: #ffffff;
+}
+body {
+	font-family: sans-serif;
+	width: 700px;
+	margin-left: auto;
+	margin-right: auto;
+	padding: 40pt;
+	font-size: 10pt;
+	background-color: #ccccff
+}
+h1 {
+	text-align: center;
+	font-size: 24pt;
+}
+h2 {
+	font-size: 18pt;
+}
+h3 {
+	font-size: 12pt;
+}
+img {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+.author {
+	text-align: center;
+	font-size: 12pt;
+	font-weight: bold;
+}
+</style>
+</head>
+<body>
